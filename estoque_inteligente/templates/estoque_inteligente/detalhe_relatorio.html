@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% load formatadores %}
+
+{% block title %}Detalhes do Relatório{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.datatables.net/2.0.8/css/dataTables.bootstrap5.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/buttons/3.0.2/css/buttons.bootstrap5.css" rel="stylesheet">
+
+<style>
+    #tabela-itens,
+    #tabela-itens th,
+    #tabela-itens td {
+        font-size: 0.78rem;
+        vertical-align: middle;
+    }
+
+    #tabela-itens th {
+        white-space: nowrap;
+    }
+
+    .dt-container {
+        font-size: 0.85rem;
+    }
+
+    .dt-buttons .btn {
+        font-size: 0.78rem;
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Detalhes do relatório</h2>
+
+    <a href="{% url 'estoque_inteligente:relatorio_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Voltar
+    </a>
+</div>
+
+<div class="row mb-2">
+    <div class="col-md-3 fw-bold">Nome do arquivo</div>
+    <div class="col-md-9">{{ relatorio.nome_original }}</div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3 fw-bold">Data de envio</div>
+    <div class="col-md-9">{{ relatorio.data_envio|date:"d/m/Y H:i" }}</div>
+</div>
+
+<div class="mb-4 d-flex gap-2 flex-wrap">
+   {% comment %}  <a href="{% url 'estoque_inteligente:relatorio_processar' relatorio.pk %}" class="btn btn-success">
+        <i class="bi bi-gear"></i> Processar itens
+    </a> {% endcomment %}
+    <form method="post" action="{% url 'estoque_inteligente:relatorio_processar' relatorio.pk %}" id="form-processar" class="d-inline">
+    {% csrf_token %}
+
+    <button type="submit" class="btn btn-success" id="btn-processar">
+        <span id="btn-texto">
+            <i class="bi bi-gear"></i> Processar itens
+        </span>
+
+        <span id="btn-loading" style="display: none;">
+            <span class="spinner-border spinner-border-sm"></span>
+            Processando...
+        </span>
+    </button>
+</form>
+    <a href="{% url 'estoque_inteligente:relatorio_detail' relatorio.pk %}" class="btn btn-outline-secondary">
+        Todos
+    </a>
+
+    <a href="?status=CRITICO" class="btn btn-outline-danger">
+        Críticos
+    </a>
+
+    <a href="?status=ATENCAO" class="btn btn-outline-warning">
+        Atenção
+    </a>
+
+    <a href="?status=NORMAL" class="btn btn-outline-success">
+        Normal
+    </a>
+
+    <a href="?status=SEM_MOVIMENTO" class="btn btn-outline-dark">
+        Sem movimento
+    </a>
+
+    <a href="?status=ESTOQUE_PARADO" class="btn btn-outline-primary">
+        Estoque parado
+    </a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Itens processados</h4>
+
+    <div style="width: 320px;">
+        <input type="text" id="pesquisa-itens" class="form-control" placeholder="Pesquisar na tabela...">
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table id="tabela-itens" class="table table-bordered table-striped table-hover align-middle w-100">
+        <thead class="table-dark">
+            <tr>
+                <th>Conta</th>
+                <th>Descrição da Conta</th>
+                <th>Item</th>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th>UM</th>
+                <th>CMM</th>
+                <th>CE</th>
+                <th>Estoque</th>
+                <th>Status</th>
+                <th>Comprar</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for item in itens %}
+                <tr>
+                    <td>{{ item.conta_codigo }}</td>
+                    <td>{{ item.conta_descricao }}</td>
+                    <td>{{ item.numero_item }}</td>
+                    <td>{{ item.codigo_material }}</td>
+                    <td>{{ item.descricao }}</td>
+                    <td>{{ item.unidade_medida }}</td>
+                    <td>{{ item.cmm|decimal_virgula }}</td>
+                    <td>{{ item.ce|decimal_virgula }}</td>
+                    <td>{{ item.estoque|inteiro }}</td>
+
+                    <td>
+                        {% if item.status == "CRITICO" %}
+                            <span class="badge text-bg-danger">{{ item.get_status_display }}</span>
+                        {% elif item.status == "ATENCAO" %}
+                            <span class="badge text-bg-warning">{{ item.get_status_display }}</span>
+                        {% elif item.status == "NORMAL" %}
+                            <span class="badge text-bg-success">{{ item.get_status_display }}</span>
+                        {% elif item.status == "ESTOQUE_PARADO" %}
+                            <span class="badge text-bg-primary">{{ item.get_status_display }}</span>
+                        {% else %}
+                            <span class="badge text-bg-secondary">{{ item.get_status_display }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td>{{ item.quantidade_sugerida|inteiro }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<script src="https://cdn.datatables.net/2.0.8/js/dataTables.js"></script>
+<script src="https://cdn.datatables.net/2.0.8/js/dataTables.bootstrap5.js"></script>
+
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/dataTables.buttons.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.bootstrap5.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.html5.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.print.js"></script>
+<script src="https://cdn.datatables.net/buttons/3.0.2/js/buttons.colVis.js"></script>
+
+<script>
+    $(document).ready(function () {
+        const tabela = $('#tabela-itens').DataTable({
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+            order: [[0, 'asc'], [2, 'asc']],
+            layout: {
+                topStart: {
+                    buttons: ['copyHtml5', 'excelHtml5', 'csvHtml5', 'pdfHtml5', 'print', 'colvis']
+                },
+                topEnd: null
+            },
+            language: {
+                search: "Pesquisar:",
+                lengthMenu: "Mostrar _MENU_ registros",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ itens",
+                infoEmpty: "Mostrando 0 a 0 de 0 itens",
+                infoFiltered: "(filtrado de _MAX_ itens no total)",
+                zeroRecords: "Nenhum item encontrado",
+                emptyTable: "Nenhum item processado ainda",
+                paginate: {
+                    first: "Primeiro",
+                    previous: "Anterior",
+                    next: "Próximo",
+                    last: "Último"
+                }
+            }
+        });
+
+        $('#pesquisa-itens').on('keyup', function () {
+            tabela.search(this.value).draw();
+        });
+    });
+</script>
+<script>
+    const form = document.getElementById("form-processar");
+    const botao = document.getElementById("btn-processar");
+    const texto = document.getElementById("btn-texto");
+    const loading = document.getElementById("btn-loading");
+
+    form.addEventListener("submit", function () {
+        botao.disabled = true;
+        texto.style.display = "none";
+        loading.style.display = "inline-block";
+    });
+</script>
+{% endblock %}
