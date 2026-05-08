@@ -5,7 +5,9 @@ from django.shortcuts import render
 
 from estoque_inteligente.models import ItemEstoque, RelatorioEstoque
 
+from django.contrib.auth.decorators import login_required
 
+@login_required
 def dashboard_home(request):
     #import pdb; pdb.set_trace()
     itens_ativos = ItemEstoque.objects.filter(ativo=True)

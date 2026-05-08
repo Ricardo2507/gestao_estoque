@@ -9,8 +9,10 @@ from .forms import RelatorioEstoqueForm
 from .models import RelatorioEstoque
 from .parser import processar_relatorio
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
-class RelatorioUploadView(CreateView):
+class RelatorioUploadView(LoginRequiredMixin, CreateView):
    
     form_class = RelatorioEstoqueForm  #Diz ao Django qual formulário (definido no seu arquivo forms.py) deve ser usado nesta página. 
     template_name = "estoque_inteligente/upload_relatorio.html" # Define o caminho do arquivo HTML que será exibido para o usuário. É a "cara" da sua página.
@@ -26,7 +28,7 @@ class RelatorioUploadView(CreateView):
         return response
 
 
-class RelatorioListView(ListView):
+class RelatorioListView(LoginRequiredMixin, ListView):
     model = RelatorioEstoque
     template_name = "estoque_inteligente/lista_relatorios.html"
     context_object_name = "relatorios"
@@ -35,7 +37,7 @@ class RelatorioListView(ListView):
         return RelatorioEstoque.objects.all().order_by("-data_envio")
 
 
-class RelatorioDetailView(DetailView):
+class RelatorioDetailView(LoginRequiredMixin, DetailView):
     model = RelatorioEstoque
     template_name = "estoque_inteligente/detalhe_relatorio.html"
     context_object_name = "relatorio"
