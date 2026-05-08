@@ -35,6 +35,7 @@
 
 <div class="row justify-content-center">
     <div class="col-lg-8">
+
         <div class="card shadow-sm">
             <div class="card-body p-4 p-md-5">
 
@@ -51,9 +52,9 @@
 
                         <h5 class="mt-3">Arraste o PDF aqui</h5>
                         <p class="text-muted mb-2">ou clique para selecionar o arquivo</p>
-                        <small class="text-muted">Máximo permitido: 20 MB</small>
+                        <small class="text-muted">Máximo recomendado: 20 MB</small>
 
-                        <div class="d-none">
+                        <div style="display: none;">
                             {{ form.arquivo_pdf }}
                         </div>
                     </div>
@@ -82,6 +83,7 @@
 
             </div>
         </div>
+
     </div>
 </div>
 
@@ -95,73 +97,44 @@
     const fileError = document.getElementById("file-error");
     const submitBtn = document.getElementById("submit-btn");
 
-    const LIMITE_MB = 20;
-    const LIMITE_BYTES = LIMITE_MB * 1024 * 1024;
-
-    function limparMensagens() {
-        fileInfo.style.display = "none";
-        fileError.style.display = "none";
-        fileInfo.innerHTML = "";
-        fileError.textContent = "";
-    }
-
-    function desabilitarEnvio() {
-        submitBtn.disabled = true;
-    }
-
-    function habilitarEnvio() {
-        submitBtn.disabled = false;
-    }
+    const limiteMB = 20;
 
     function formatarTamanho(bytes) {
         return (bytes / (1024 * 1024)).toFixed(2);
     }
 
-    function limparArquivo() {
-        inputFile.value = "";
-        desabilitarEnvio();
-    }
-
-    function exibirErro(mensagem) {
-        fileError.textContent = mensagem;
-        fileError.style.display = "block";
-        limparArquivo();
-    }
-
-    function exibirArquivoValido(file) {
-        const tamanhoMB = formatarTamanho(file.size);
-
-        fileInfo.innerHTML = `
-            <strong>Arquivo selecionado:</strong> ${file.name}<br>
-            <strong>Tamanho:</strong> ${tamanhoMB} MB
-        `;
-
-        fileInfo.style.display = "block";
-        habilitarEnvio();
-    }
-
     function validarArquivo(file) {
-        limparMensagens();
-        desabilitarEnvio();
+        fileInfo.style.display = "none";
+        fileError.style.display = "none";
+        submitBtn.disabled = true;
 
         if (!file) {
             return;
         }
 
-        const nomeArquivo = file.name.toLowerCase();
+        const tamanhoMB = formatarTamanho(file.size);
+        const nome = file.name.toLowerCase();
 
-        if (!nomeArquivo.endsWith(".pdf")) {
-            exibirErro("Arquivo inválido. Envie apenas arquivos PDF.");
+        if (!nome.endsWith(".pdf")) {
+            fileError.textContent = "Arquivo inválido. Envie apenas arquivos PDF.";
+            fileError.style.display = "block";
+            inputFile.value = "";
             return;
         }
 
-        if (file.size > LIMITE_BYTES) {
-            const tamanhoMB = formatarTamanho(file.size);
-            exibirErro(`Arquivo muito grande (${tamanhoMB} MB). Máximo permitido: ${LIMITE_MB} MB.`);
+        if (parseFloat(tamanhoMB) > limiteMB) {
+            fileError.textContent = `Arquivo muito grande (${tamanhoMB} MB). Máximo permitido: ${limiteMB} MB.`;
+            fileError.style.display = "block";
+            inputFile.value = "";
             return;
         }
 
-        exibirArquivoValido(file);
+        fileInfo.innerHTML = `
+            <strong>Arquivo selecionado:</strong> ${file.name}<br>
+            <strong>Tamanho:</strong> ${tamanhoMB} MB
+        `;
+        fileInfo.style.display = "block";
+        submitBtn.disabled = false;
     }
 
     uploadArea.addEventListener("click", () => {
@@ -187,15 +160,12 @@
 
         const file = event.dataTransfer.files[0];
 
-        if (!file) {
-            return;
+        if (file) {
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            inputFile.files = dataTransfer.files;
+            validarArquivo(file);
         }
-
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        inputFile.files = dataTransfer.files;
-
-        validarArquivo(file);
     });
 </script>
 {% endblock %}

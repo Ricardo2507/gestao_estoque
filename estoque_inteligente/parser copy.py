@@ -43,35 +43,28 @@ def para_decimal(valor):
 
 
 def detectar_status(cmm, ce, estoque):
-    cmm = Decimal(cmm)
-    ce = Decimal(ce)
-    estoque = Decimal(estoque)
+    if estoque == 0 and cmm > 0:
+        return STATUS_CRITICO
+
+    if ce > 0 and ce <= 30:
+        return STATUS_CRITICO
+
+    if ce > 30 and ce <= 90:
+        return STATUS_ATENCAO
+
+    if ce > 90:
+        return STATUS_NORMAL
 
     if cmm == 0 and estoque == 0:
         return STATUS_SEM_MOVIMENTO
 
-    if estoque > 0 and cmm <= Decimal("0.10"):
+    if cmm == 0 and estoque > 0:
         return STATUS_ESTOQUE_PARADO
 
-    if cmm > 0 and estoque == 0:
-        return STATUS_CRITICO
-
-    if cmm > 0 and estoque > 0 and ce == 0:
-        return STATUS_ESTOQUE_PARADO
-
-    if ce <= 30:
-        return STATUS_CRITICO
-
-    if ce <= 90:
-        return STATUS_ATENCAO
-
-    return STATUS_NORMAL
+    return STATUS_SEM_MOVIMENTO
 
 
 def calcular_quantidade_sugerida(cmm, estoque):
-    cmm = Decimal(cmm)
-    estoque = Decimal(estoque)
-
     quantidade = (cmm * Decimal("3")) - estoque
 
     if quantidade <= 0:
@@ -216,6 +209,9 @@ def extrair_itens_com_pdfplumber(caminho_pdf):
 
                     codigo_material, descricao = separar_codigo_descricao(material)
 
+                    status = detectar_status(cmm, ce, estoque)
+                    quantidade_sugerida = calcular_quantidade_sugerida(cmm, estoque)
+
                     itens.append(
                         {
                             "conta_codigo": conta_codigo_atual,
@@ -230,8 +226,8 @@ def extrair_itens_com_pdfplumber(caminho_pdf):
                             "preco_medio": preco_medio,
                             "estoque": estoque,
                             "valor": valor,
-                            "status": detectar_status(cmm, ce, estoque),
-                            "quantidade_sugerida": calcular_quantidade_sugerida(cmm, estoque),
+                            "status": status,
+                            "quantidade_sugerida": quantidade_sugerida,
                         }
                     )
 
