@@ -2,6 +2,8 @@ import re
 from decimal import Decimal, InvalidOperation, ROUND_CEILING
 
 import pdfplumber
+from django.db import transaction
+from django.db.models import Q
 
 from .models import ItemEstoque
 
@@ -82,6 +84,7 @@ def calcular_quantidade_sugerida(cmm, estoque):
 
 def separar_codigo_descricao(material):
     material = limpar_texto(material)
+
     match = re.match(r"^(\d{6,12})\s*-\s*(.+)$", material)
 
     if match:
@@ -216,6 +219,9 @@ def extrair_itens_com_pdfplumber(caminho_pdf):
 
                     codigo_material, descricao = separar_codigo_descricao(material)
 
+                    if not codigo_material:
+                        continue
+
                     itens.append(
                         {
                             "conta_codigo": conta_codigo_atual,
@@ -238,12 +244,61 @@ def extrair_itens_com_pdfplumber(caminho_pdf):
     return itens
 
 
+def deduplicar_itens_por_material(itens):
+    itens_unicos = {}
+
+    for item in itens:
+        chave = (
+            item["conta_codigo"],
+            item["codigo_material"],
+        )
+
+        if chave not in itens_unicos:
+            itens_unicos[chave] = item
+            continue
+
+        item_atual = itens_unicos[chave]
+
+        pontuacao_novo = (
+            item["estoque"],
+            item["valor"],
+            item["ce"],
+            item["preco_medio"],
+        )
+
+        pontuacao_atual = (
+            item_atual["estoque"],
+            item_atual["valor"],
+            item_atual["ce"],
+            item_atual["preco_medio"],
+        )
+
+        if pontuacao_novo > pontuacao_atual:
+            itens_unicos[chave] = item
+
+    return list(itens_unicos.values())
+
+
+def montar_filtro_pares_conta_material(pares):
+    filtro = Q()
+
+    for conta_codigo, codigo_material in pares:
+        filtro |= Q(
+            conta_codigo=conta_codigo,
+            codigo_material=codigo_material,
+        )
+
+    return filtro
+
+
 def processar_relatorio(relatorio):
     if not relatorio.arquivo_pdf:
         raise ValueError("Relatório não possui arquivo PDF.")
 
     caminho_pdf = relatorio.arquivo_pdf.path
+
     itens_extraidos = extrair_itens_com_pdfplumber(caminho_pdf)
+    itens_extraidos = deduplicar_itens_por_material(itens_extraidos)
 
     if not itens_extraidos:
         raise ValueError(
@@ -251,44 +306,47 @@ def processar_relatorio(relatorio):
             "O PDF pode estar como imagem pura."
         )
 
-    contas_do_novo_relatorio = {
-        item["conta_codigo"]
+    pares_conta_material = {
+        (item["conta_codigo"], item["codigo_material"])
         for item in itens_extraidos
-        if item["conta_codigo"]
+        if item["conta_codigo"] and item["codigo_material"]
     }
 
-    if contas_do_novo_relatorio:
-        ItemEstoque.objects.filter(
-            conta_codigo__in=contas_do_novo_relatorio,
-            ativo=True,
-        ).update(ativo=False)
+    with transaction.atomic():
+        relatorio.itens.all().delete()
 
-    relatorio.itens.all().delete()
+        if pares_conta_material:
+            filtro_pares = montar_filtro_pares_conta_material(pares_conta_material)
 
-    objetos = []
-
-    for dados in itens_extraidos:
-        objetos.append(
-            ItemEstoque(
-                relatorio=relatorio,
+            ItemEstoque.objects.filter(
+                filtro_pares,
                 ativo=True,
-                conta_codigo=dados["conta_codigo"],
-                conta_descricao=dados["conta_descricao"],
-                numero_item=dados["numero_item"],
-                codigo_material=dados["codigo_material"],
-                descricao=dados["descricao"],
-                unidade_medida=dados["unidade_medida"],
-                finalidade_compra=dados["finalidade_compra"],
-                cmm=dados["cmm"],
-                ce=dados["ce"],
-                estoque=dados["estoque"],
-                preco_medio=dados["preco_medio"],
-                valor=dados["valor"],
-                status=dados["status"],
-                quantidade_sugerida=dados["quantidade_sugerida"],
-            )
-        )
+            ).update(ativo=False)
 
-    ItemEstoque.objects.bulk_create(objetos, batch_size=500)
+        objetos = []
+
+        for dados in itens_extraidos:
+            objetos.append(
+                ItemEstoque(
+                    relatorio=relatorio,
+                    ativo=True,
+                    conta_codigo=dados["conta_codigo"],
+                    conta_descricao=dados["conta_descricao"],
+                    numero_item=dados["numero_item"],
+                    codigo_material=dados["codigo_material"],
+                    descricao=dados["descricao"],
+                    unidade_medida=dados["unidade_medida"],
+                    finalidade_compra=dados["finalidade_compra"],
+                    cmm=dados["cmm"],
+                    ce=dados["ce"],
+                    estoque=dados["estoque"],
+                    preco_medio=dados["preco_medio"],
+                    valor=dados["valor"],
+                    status=dados["status"],
+                    quantidade_sugerida=dados["quantidade_sugerida"],
+                )
+            )
+
+        ItemEstoque.objects.bulk_create(objetos, batch_size=500)
 
     return objetos
