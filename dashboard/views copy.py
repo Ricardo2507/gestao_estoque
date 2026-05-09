@@ -1,33 +1,26 @@
 from decimal import Decimal
 
-from django.db.models import Count, Sum
+from django.contrib.auth.decorators import login_required
+from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 
 from estoque_inteligente.models import ItemEstoque, RelatorioEstoque
 
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def dashboard_home(request):
-    #import pdb; pdb.set_trace()
     itens_ativos = ItemEstoque.objects.filter(ativo=True)
 
-    total_relatorios = RelatorioEstoque.objects.count()
-    total_itens = itens_ativos.count()
-
-    total_criticos = itens_ativos.filter(status="CRITICO").count()
-    total_atencao = itens_ativos.filter(status="ATENCAO").count()
-    total_normais = itens_ativos.filter(status="NORMAL").count()
-    total_sem_movimento = itens_ativos.filter(status="SEM_MOVIMENTO").count()
-    total_estoque_parado = itens_ativos.filter(status="ESTOQUE_PARADO").count()
-
-    valor_total_estoque = itens_ativos.aggregate(
-        total=Sum("valor")
-    )["total"] or Decimal("0")
-
-    total_sugerido_compra = itens_ativos.aggregate(
-        total=Sum("quantidade_sugerida")
-    )["total"] or Decimal("0")
+    totais = itens_ativos.aggregate(
+        total_itens=Count("id"),
+        total_criticos=Count("id", filter=Q(status="CRITICO")),
+        total_atencao=Count("id", filter=Q(status="ATENCAO")),
+        total_normais=Count("id", filter=Q(status="NORMAL")),
+        total_sem_movimento=Count("id", filter=Q(status="SEM_MOVIMENTO")),
+        total_estoque_parado=Count("id", filter=Q(status="ESTOQUE_PARADO")),
+        valor_total_estoque=Sum("valor"),
+        total_sugerido_compra=Sum("quantidade_sugerida"),
+    )
 
     itens_por_status = (
         itens_ativos
@@ -47,15 +40,15 @@ def dashboard_home(request):
     ultimos_relatorios = RelatorioEstoque.objects.order_by("-data_envio")[:5]
 
     contexto = {
-        "total_relatorios": total_relatorios,
-        "total_itens": total_itens,
-        "total_criticos": total_criticos,
-        "total_atencao": total_atencao,
-        "total_normais": total_normais,
-        "total_sem_movimento": total_sem_movimento,
-        "total_estoque_parado": total_estoque_parado,
-        "valor_total_estoque": valor_total_estoque,
-        "total_sugerido_compra": total_sugerido_compra,
+        "total_relatorios": RelatorioEstoque.objects.count(),
+        "total_itens": totais["total_itens"] or 0,
+        "total_criticos": totais["total_criticos"] or 0,
+        "total_atencao": totais["total_atencao"] or 0,
+        "total_normais": totais["total_normais"] or 0,
+        "total_sem_movimento": totais["total_sem_movimento"] or 0,
+        "total_estoque_parado": totais["total_estoque_parado"] or 0,
+        "valor_total_estoque": totais["valor_total_estoque"] or Decimal("0"),
+        "total_sugerido_compra": totais["total_sugerido_compra"] or Decimal("0"),
         "itens_por_status": list(itens_por_status),
         "criticos_por_conta": criticos_por_conta,
         "ultimos_relatorios": ultimos_relatorios,
