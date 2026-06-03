@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}
+Upload Consumo Mensal de Material
+{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-lg-8">
+
+        <div class="card shadow-sm border-0">
+
+            <div class="card-body p-4">
+
+                <h2 class="mb-4">
+                    <i class="bi bi-cloud-upload me-2"></i>
+                    Enviar relatório de consumo mensal de material
+                </h2>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div
+                            class="alert alert-{{ message.tags }} alert-dismissible fade show"
+                            role="alert"
+                        >
+                            {{ message }}
+                            <button
+                                type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert"
+                            ></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for erro in form.non_field_errors %}
+                            <div>{{ erro }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <form
+                    method="post"
+                    enctype="multipart/form-data"
+                    id="upload-form"
+                >
+
+                    {% csrf_token %}
+
+                    <div
+                        class="border border-success border-2 rounded-4 p-5 text-center bg-light"
+                        style="border-style:dashed !important;"
+                    >
+
+                        <div class="mb-3">
+                            <i
+                                class="bi bi-file-earmark-pdf text-success"
+                                style="font-size:4rem;"
+                            ></i>
+                        </div>
+
+                        <h3 class="mb-3">
+                            Arraste o PDF aqui
+                        </h3>
+
+                        <p class="text-muted mb-2">
+                            ou clique para selecionar o arquivo
+                        </p>
+
+                        <p class="small text-muted mb-4">
+                            Relatório Consumo Mensal de Material
+                        </p>
+
+                        {{ form.arquivo_pdf }}
+
+                        {% if form.arquivo_pdf.errors %}
+                            <div class="alert alert-danger mt-3 mb-0">
+                                {% for erro in form.arquivo_pdf.errors %}
+                                    <div>{{ erro }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+                    <div
+                        id="loading-area"
+                        class="alert alert-info mt-4 d-none"
+                    >
+                        <div class="d-flex align-items-center">
+                            <div
+                                class="spinner-border spinner-border-sm me-3"
+                                role="status"
+                            ></div>
+                            <div>
+                                Processando relatório...
+                                Dependendo da quantidade de páginas,
+                                esta operação pode levar alguns segundos.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 d-flex gap-2">
+
+                        <button
+                            type="submit"
+                            class="btn btn-success"
+                        >
+                            <i class="bi bi-cloud-upload me-1"></i>
+                            Enviar PDF
+                        </button>
+
+                        <a
+                            href="{% url 'estoque_inteligente:consumo_material_list' %}"
+                            class="btn btn-outline-secondary"
+                        >
+                            <i class="bi bi-list-ul me-1"></i>
+                            Ver relatórios
+                        </a>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+document
+    .getElementById('upload-form')
+    .addEventListener('submit', function(){
+        document
+            .getElementById('loading-area')
+            .classList.remove('d-none');
+    });
+</script>
+
+{% endblock %}

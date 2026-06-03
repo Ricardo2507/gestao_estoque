@@ -6,7 +6,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from .models import RelatorioEstoque
-
+from .models import RelatorioConsumoMaterial
 
 CODIGO_RELATORIO_VALIDO = "AX0003.P-AX0003P"
 
@@ -166,6 +166,71 @@ class RelatorioConsumoURForm(forms.ModelForm):
                 "Relatório inválido. Envie apenas o relatório "
                 "Consumo Mensal de Material por Unidade Requisitante "
                 "(AX0126-AX0126.jasper)."
+            )
+
+        arquivo.seek(0)
+        self.hash_arquivo = hash_arquivo
+
+        return arquivo
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+
+        instance.nome_original = self.cleaned_data["arquivo_pdf"].name
+
+        instance.hash_arquivo = getattr(
+            self,
+            "hash_arquivo",
+            "",
+        )
+
+        if commit:
+            instance.save()
+
+        return instance
+    
+CODIGO_RELATORIO_CONSUMO_MATERIAL = "AX0095-AX0095.jasper"
+
+
+class RelatorioConsumoMaterialForm(forms.ModelForm):
+
+    class Meta:
+        model = RelatorioConsumoMaterial
+        fields = ["arquivo_pdf"]
+
+    def clean_arquivo_pdf(self):
+        arquivo = self.cleaned_data["arquivo_pdf"]
+
+        if not arquivo.name.lower().endswith(".pdf"):
+            raise ValidationError("Envie apenas arquivos PDF.")
+
+        hash_arquivo = calcular_hash_arquivo(arquivo)
+
+        relatorio_existente = RelatorioConsumoMaterial.objects.filter(
+            hash_arquivo=hash_arquivo
+        ).first()
+
+        if relatorio_existente:
+            raise ValidationError(
+                "Este relatório de consumo mensal de material já foi enviado anteriormente "
+                f"em {relatorio_existente.data_envio:%d/%m/%Y às %H:%M}."
+            )
+
+        try:
+            texto_pdf = ""
+
+            with pdfplumber.open(arquivo) as pdf:
+                for page in pdf.pages[:3]:
+                    texto_pdf += page.extract_text() or ""
+
+        except Exception:
+            raise ValidationError("Não foi possível ler o PDF enviado.")
+
+        if CODIGO_RELATORIO_CONSUMO_MATERIAL not in texto_pdf:
+            raise ValidationError(
+                "Relatório inválido. Envie apenas o relatório "
+                "Consumo Mensal de Material "
+                "(AX0095-AX0095.jasper)."
             )
 
         arquivo.seek(0)

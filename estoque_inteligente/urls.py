@@ -38,4 +38,24 @@ urlpatterns = [
         views.ConsumoURDeleteView.as_view(),
         name="consumo_ur_delete",
     ),
+    path(
+    "consumo-material/",
+    views.ConsumoMaterialListView.as_view(),
+    name="consumo_material_list",
+    ),
+    path(
+        "consumo-material/upload/",
+        views.ConsumoMaterialUploadView.as_view(),
+        name="consumo_material_upload",
+    ),
+    path(
+        "consumo-material/<int:pk>/",
+        views.ConsumoMaterialDetailView.as_view(),
+        name="consumo_material_detail",
+    ),
+    path(
+        "consumo-material/<int:pk>/excluir/",
+        views.ConsumoMaterialDeleteView.as_view(),
+        name="consumo_material_delete",
+    ),
 ]

@@ -145,6 +145,16 @@
 
                             </li>
 
+                            <li>
+                                <a
+                                    class="dropdown-item"
+                                    href="{% url 'estoque_inteligente:consumo_material_list' %}"
+                                >
+                                    <i class="bi bi-calendar3 me-2"></i>
+                                    Consumo Mensal de Material
+                                </a>
+                            </li>
+
                         </ul>
 
                     </li>
@@ -185,6 +195,17 @@
                                 >
                                     <i class="bi bi-file-earmark-pdf me-2"></i>
                                     Upload Consumo por UR
+                                </a>
+
+                            </li>
+                             <li>
+
+                                <a
+                                    class="dropdown-item"
+                                    href="{% url 'estoque_inteligente:consumo_material_upload' %}"
+                                >
+                                    <i class="bi bi-file-earmark-pdf me-2"></i>
+                                    Upload Consumo Mensal
                                 </a>
 
                             </li>

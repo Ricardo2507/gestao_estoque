@@ -11,7 +11,9 @@ from .forms import RelatorioEstoqueForm
 from .models import ItemEstoque, RelatorioEstoque
 from .parser import processar_relatorio
 
-
+from .models import RelatorioConsumoMaterial
+from .forms import RelatorioConsumoMaterialForm
+from .parser_consumo_material import processar_relatorio_consumo_material
 
 class RelatorioUploadView(LoginRequiredMixin, CreateView):
     model = RelatorioEstoque
@@ -336,7 +338,6 @@ class ConsumoURListView(LoginRequiredMixin, ListView):
             .order_by("-data_envio")
         )
 
-
 class ConsumoURDetailView(LoginRequiredMixin, DetailView):
     model = RelatorioConsumoUR
     template_name = "estoque_inteligente/consumo_ur/detalhe.html"
@@ -348,7 +349,9 @@ class ConsumoURDetailView(LoginRequiredMixin, DetailView):
         material = self.request.GET.get("material", "").strip()
         ur = self.request.GET.get("ur", "").strip()
 
-        itens = self.object.itens_consumo.all()
+        itens_base = self.object.itens_consumo.all()
+
+        itens = itens_base
 
         if material:
             itens = itens.filter(material_codigo=material)
@@ -358,20 +361,15 @@ class ConsumoURDetailView(LoginRequiredMixin, DetailView):
 
         meses = []
 
-        primeiro_item = self.object.itens_consumo.first()
+        primeiro_item = itens_base.first()
 
         if primeiro_item:
             meses = list(
                 primeiro_item.consumos_mensais.keys()
             )
 
-        context["itens"] = itens
-        context["meses"] = meses
-        context["material_atual"] = material
-        context["ur_atual"] = ur
-
-        context["materiais"] = (
-            self.object.itens_consumo
+        materiais = (
+            itens_base
             .values(
                 "material_codigo",
                 "material_descricao",
@@ -380,15 +378,32 @@ class ConsumoURDetailView(LoginRequiredMixin, DetailView):
             .order_by("material_codigo")
         )
 
-        context["urs"] = (
-            self.object.itens_consumo
-            .values(
-                "ur_codigo",
-                "ur_descricao",
-            )
-            .distinct()
-            .order_by("ur_codigo")
-        )
+        urs_dict = {}
+
+        for item in itens_base.order_by("ur_codigo", "ur_descricao"):
+
+            descricao = item.ur_descricao.strip()
+
+            while descricao.endswith(" 0"):
+                descricao = descricao[:-2].strip()
+
+            if item.ur_codigo not in urs_dict:
+                urs_dict[item.ur_codigo] = descricao
+
+        urs = [
+            {
+                "ur_codigo": codigo,
+                "ur_descricao": descricao,
+            }
+            for codigo, descricao in urs_dict.items()
+        ]
+
+        context["itens"] = itens
+        context["meses"] = meses
+        context["material_atual"] = material
+        context["ur_atual"] = ur
+        context["materiais"] = materiais
+        context["urs"] = urs
 
         return context
 
@@ -460,3 +475,88 @@ def atualizar_nome_relatorio_consumo_ur(relatorio):
         relatorio.save(
             update_fields=["nome_original"]
         )
+        
+class ConsumoMaterialListView(LoginRequiredMixin, ListView):
+    model = RelatorioConsumoMaterial
+    template_name = "estoque_inteligente/consumo_material/lista.html"
+    context_object_name = "relatorios"
+    ordering = ["-data_envio"]
+
+
+class ConsumoMaterialUploadView(LoginRequiredMixin, CreateView):
+    model = RelatorioConsumoMaterial
+    form_class = RelatorioConsumoMaterialForm
+    template_name = "estoque_inteligente/consumo_material/upload.html"
+
+    def form_valid(self, form):
+        self.object = form.save()
+
+        try:
+            itens = processar_relatorio_consumo_material(self.object)
+
+            messages.success(
+                self.request,
+                f"Relatório de consumo mensal de material enviado e {len(itens)} itens processados com sucesso.",
+            )
+
+            return redirect(
+                "estoque_inteligente:consumo_material_detail",
+                pk=self.object.pk,
+            )
+
+        except Exception as exc:
+            messages.error(
+                self.request,
+                f"Erro ao processar relatório de consumo mensal de material: {exc}",
+            )
+
+            return redirect("estoque_inteligente:consumo_material_list")
+
+    def form_invalid(self, form):
+        messages.error(
+            self.request,
+            "Não foi possível enviar o relatório de consumo mensal de material.",
+        )
+
+        for campo, erros in form.errors.items():
+            for erro in erros:
+                messages.warning(self.request, erro)
+
+        return super().form_invalid(form)
+
+
+class ConsumoMaterialDetailView(LoginRequiredMixin, DetailView):
+    model = RelatorioConsumoMaterial
+    template_name = "estoque_inteligente/consumo_material/detalhe.html"
+    context_object_name = "relatorio"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        itens = self.object.itens_consumo_material.all()
+
+        meses = []
+
+        primeiro_item = itens.first()
+
+        if primeiro_item:
+            meses = list(primeiro_item.consumos_mensais.keys())
+
+        context["itens"] = itens
+        context["meses"] = meses
+
+        return context
+
+
+class ConsumoMaterialDeleteView(LoginRequiredMixin, DeleteView):
+    model = RelatorioConsumoMaterial
+    template_name = "estoque_inteligente/consumo_material/confirmar_exclusao.html"
+    context_object_name = "relatorio"
+
+    def get_success_url(self):
+        messages.success(
+            self.request,
+            "Relatório de consumo mensal de material excluído com sucesso.",
+        )
+
+        return reverse_lazy("estoque_inteligente:consumo_material_list")

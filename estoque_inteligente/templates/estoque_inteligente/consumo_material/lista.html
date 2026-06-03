@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Relatórios de Consumo Mensal de Material
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h1 class="mb-1">Relatórios de Consumo Mensal de Material</h1>
+
+        <p class="text-muted mb-0">
+            Relatórios de consumo por material, período, total, CMP e saldo atual.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'estoque_inteligente:consumo_material_upload' %}"
+        class="btn btn-success"
+    >
+        <i class="bi bi-cloud-upload me-1"></i>
+        Novo upload
+    </a>
+
+</div>
+
+<div class="card shadow-sm">
+
+    <div class="card-body p-0">
+
+        {% if relatorios %}
+
+            <div class="table-responsive">
+
+                <table class="table table-striped table-hover align-middle mb-0">
+
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 5%;">ID</th>
+                            <th>Nome original</th>
+                            <th style="width: 18%;">Data de envio</th>
+                            <th style="width: 16%;">Arquivo</th>
+                            <th style="width: 14%;" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for relatorio in relatorios %}
+                            <tr>
+                                <td>{{ relatorio.id }}</td>
+                                <td>{{ relatorio.nome_original }}</td>
+                                <td>{{ relatorio.data_envio|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    {% if relatorio.arquivo_pdf %}
+                                        <a
+                                            href="{{ relatorio.arquivo_pdf.url }}"
+                                            class="btn btn-outline-secondary btn-sm"
+                                            target="_blank"
+                                        >
+                                            <i class="bi bi-download"></i>
+                                            Baixar
+                                        </a>
+                                    {% else %}
+                                        <span class="text-muted">Sem arquivo</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <a
+                                        href="{% url 'estoque_inteligente:consumo_material_detail' relatorio.pk %}"
+                                        class="btn btn-outline-primary btn-sm"
+                                        title="Ver detalhes"
+                                    >
+                                        <i class="bi bi-eye"></i>
+                                        Detalhes
+                                    </a>
+                                    <a
+                                        href="{% url 'estoque_inteligente:consumo_material_delete' relatorio.pk %}"
+                                        class="btn btn-danger btn-sm"
+                                        title="Excluir relatório"
+                                    >
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="alert alert-info m-3">
+                Nenhum relatório de consumo mensal de material enviado até o momento.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,25 +1,23 @@
 {% extends "base.html" %}
 {% load dict_extras %}
-{% load formatadores %}
 
 {% block title %}
-Detalhes Consumo por UR
+Detalhes Consumo Mensal de Material
 {% endblock %}
 
 {% block extra_css %}
 
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
 <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
 
 <style>
-    #tabela-consumo-ur {
+    #tabela-consumo-material {
         width: 100% !important;
         font-size: 0.82rem;
     }
 
-    #tabela-consumo-ur th,
-    #tabela-consumo-ur td {
+    #tabela-consumo-material th,
+    #tabela-consumo-material td {
         vertical-align: middle;
         white-space: nowrap;
     }
@@ -29,21 +27,6 @@ Detalhes Consumo por UR
     }
 
     .col-material {
-        min-width: 260px;
-        white-space: normal !important;
-    }
-
-    .col-um {
-        min-width: 55px;
-        text-align: center;
-    }
-
-    .col-ur {
-        min-width: 60px;
-        text-align: center;
-    }
-
-    .col-descricao-ur {
         min-width: 320px;
         white-space: normal !important;
     }
@@ -53,33 +36,24 @@ Detalhes Consumo por UR
         text-align: right;
     }
 
+    .col-um {
+        min-width: 55px;
+        text-align: center;
+    }
+
     .col-total,
-    .col-cmp {
-        min-width: 85px;
+    .col-cmp,
+    .col-saldo {
+        min-width: 90px;
         text-align: right;
+    }
+
+    .saldo-atual {
+        font-weight: 600;
     }
 
     div.dataTables_wrapper {
         width: 100%;
-    }
-
-    .select2-container {
-        width: 100% !important;
-    }
-
-    .select2-container--default .select2-selection--single {
-        height: 38px;
-        padding: 5px 8px;
-        border: 1px solid #ced4da;
-        border-radius: 0.375rem;
-    }
-
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 26px;
-    }
-
-    .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 36px;
     }
 </style>
 
@@ -90,7 +64,9 @@ Detalhes Consumo por UR
 <div class="d-flex justify-content-between align-items-start mb-4">
 
     <div>
-        <h1 class="mb-4">Detalhes do relatório de consumo por UR</h1>
+        <h1 class="mb-4">
+            Detalhes do relatório de consumo mensal de material
+        </h1>
 
         <div class="row mb-2">
             <div class="col-md-3 fw-bold">
@@ -114,101 +90,13 @@ Detalhes Consumo por UR
     </div>
 
     <a
-        href="{% url 'estoque_inteligente:consumo_ur_list' %}"
+        href="{% url 'estoque_inteligente:consumo_material_list' %}"
         class="btn btn-outline-secondary"
     >
         ← Voltar
     </a>
 
 </div>
-
-<form method="get" class="card shadow-sm mb-4">
-
-    <div class="card-body">
-
-        <div class="row g-3 align-items-end">
-
-            <div class="col-md-5">
-
-                <label class="form-label fw-bold">
-                    Material
-                </label>
-
-                <select name="material" class="form-select select2">
-
-                    <option value="">
-                        Todos os materiais
-                    </option>
-
-                    {% for material in materiais %}
-
-                        <option
-                            value="{{ material.material_codigo }}"
-                            {% if material.material_codigo == material_atual %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ material.material_codigo }} - {{ material.material_descricao }}
-                        </option>
-
-                    {% endfor %}
-
-                </select>
-
-            </div>
-
-            <div class="col-md-5">
-
-                <label class="form-label fw-bold">
-                    Unidade Requisitante
-                </label>
-
-                <select name="ur" class="form-select select2">
-
-                    <option value="">
-                        Todas as URs
-                    </option>
-
-                    {% for ur in urs %}
-
-                        <option
-                            value="{{ ur.ur_codigo }}"
-                            {% if ur.ur_codigo == ur_atual %}
-                                selected
-                            {% endif %}
-                        >
-                            {{ ur.ur_codigo }} - {{ ur.ur_descricao }}
-                        </option>
-
-                    {% endfor %}
-
-                </select>
-
-            </div>
-
-            <div class="col-md-2 d-flex gap-2">
-
-                <button
-                    type="submit"
-                    class="btn btn-primary w-100"
-                >
-                    Filtrar
-                </button>
-
-                <a
-                    href="{% url 'estoque_inteligente:consumo_ur_detail' relatorio.pk %}"
-                    class="btn btn-outline-secondary"
-                >
-                    Limpar
-                </a>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</form>
 
 <h2 class="mb-3">Itens processados</h2>
 
@@ -221,7 +109,7 @@ Detalhes Consumo por UR
             <div class="table-responsive">
 
                 <table
-                    id="tabela-consumo-ur"
+                    id="tabela-consumo-material"
                     class="table table-striped table-hover align-middle table-sm"
                 >
 
@@ -230,16 +118,17 @@ Detalhes Consumo por UR
                         <tr>
                             <th class="col-codigo">Código</th>
                             <th class="col-material">Descrição do Material</th>
-                            <th class="col-um">UM</th>
-                            <th class="col-ur">UR</th>
-                            <th class="col-descricao-ur">Descrição da UR</th>
 
                             {% for mes in meses %}
-                                <th class="col-mes">{{ mes }}</th>
+                                <th class="col-mes">
+                                    {{ mes }}
+                                </th>
                             {% endfor %}
 
+                            <th class="col-um">UM</th>
                             <th class="col-total">Total</th>
                             <th class="col-cmp">CMP</th>
+                            <th class="col-saldo">Saldo Atual</th>
                         </tr>
 
                     </thead>
@@ -257,23 +146,15 @@ Detalhes Consumo por UR
                                     {{ item.material_descricao }}
                                 </td>
 
-                                <td class="col-um">
-                                    {{ item.unidade_medida }}
-                                </td>
-
-                                <td class="col-ur">
-                                    {{ item.ur_codigo }}
-                                </td>
-
-                                <td class="col-descricao-ur">
-                                    {{ item.ur_descricao }}
-                                </td>
-
                                 {% for mes in meses %}
                                     <td class="col-mes">
                                         {{ item.consumos_mensais|get_item:mes|floatformat:0 }}
                                     </td>
                                 {% endfor %}
+
+                                <td class="col-um">
+                                    {{ item.unidade_medida }}
+                                </td>
 
                                 <td class="col-total fw-bold">
                                     {{ item.total|floatformat:0 }}
@@ -281,6 +162,10 @@ Detalhes Consumo por UR
 
                                 <td class="col-cmp fw-bold">
                                     {{ item.cmp|floatformat:4 }}
+                                </td>
+
+                                <td class="col-saldo saldo-atual">
+                                    {{ item.saldo_atual|floatformat:0 }}
                                 </td>
                             </tr>
 
@@ -310,8 +195,6 @@ Detalhes Consumo por UR
 
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
 
@@ -327,14 +210,7 @@ Detalhes Consumo por UR
 
 <script>
     $(document).ready(function () {
-
-        $('.select2').select2({
-            width: '100%',
-            placeholder: 'Digite para pesquisar...',
-            allowClear: true
-        });
-
-        $('#tabela-consumo-ur').DataTable({
+        $('#tabela-consumo-material').DataTable({
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
             },
@@ -352,8 +228,8 @@ Detalhes Consumo por UR
                     extend: 'excelHtml5',
                     text: 'Excel',
                     className: 'btn btn-secondary btn-sm',
-                    filename: 'consumo_por_ur_{{ relatorio.id }}',
-                    title: 'Consumo por UR - {{ relatorio.nome_original }}',
+                    filename: 'consumo_mensal_material_{{ relatorio.id }}',
+                    title: 'Consumo Mensal de Material - {{ relatorio.nome_original }}',
                     exportOptions: {
                         format: {
                             body: function (data, row, column, node) {
@@ -373,14 +249,14 @@ Detalhes Consumo por UR
                     extend: 'csvHtml5',
                     text: 'CSV',
                     className: 'btn btn-secondary btn-sm',
-                    filename: 'consumo_por_ur_{{ relatorio.id }}'
+                    filename: 'consumo_mensal_material_{{ relatorio.id }}'
                 },
                 {
                     extend: 'pdfHtml5',
                     text: 'PDF',
                     className: 'btn btn-secondary btn-sm',
-                    filename: 'consumo_por_ur_{{ relatorio.id }}',
-                    title: 'Consumo por UR - {{ relatorio.nome_original }}',
+                    filename: 'consumo_mensal_material_{{ relatorio.id }}',
+                    title: 'Consumo Mensal de Material - {{ relatorio.nome_original }}',
                     orientation: 'landscape',
                     pageSize: 'A4'
                 },
