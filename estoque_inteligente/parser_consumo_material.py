@@ -2,24 +2,44 @@ import re
 from decimal import Decimal
 
 import pdfplumber
+from django.db import transaction
 
 from .models import ItemConsumoMaterial
 
 
-MESES_REGEX = re.compile(r"20\d{2}/\d{2}")
-ITEM_REGEX = re.compile(r"^(\d{6,})\s*-\s*(.+)")
-NUMERO_REGEX = re.compile(r"^\d+(?:\.\d{3})*(?:,\d+)?$|^\d+(?:,\d+)?$")
-UM_VALIDAS = {
-    "UN", "KG", "PCT", "PC", "CX", "FR", "RO", "L", "BIS", "BL",
-    "RL", "LT", "M", "MT", "GL", "PAR", "JG", "PÇ", "UND",
-}
+PADRAO_CODIGO_MATERIAL = re.compile(
+    r"^(?P<codigo>\d{9})\s*-\s*(?P<descricao>.*)$"
+)
+
+PADRAO_DATA_GERACAO = re.compile(
+    r"(?P<data>\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2})"
+)
+
+PADRAO_PERIODO = re.compile(
+    r"Período:\s*(?P<inicio>\d{2}/\d{4})\s*a\s*(?P<fim>\d{2}/\d{4})"
+)
+
+PADRAO_MESES = re.compile(r"\d{4}/\d{2}")
+
+NUMERO_INTEIRO = r"\d+(?:\.\d{3})*"
+
+
+def limpar_linha(linha):
+    linha = linha.replace("\xa0", " ")
+    linha = linha.replace("\uFFFE", "")
+    linha = linha.replace("￾", "")
+    linha = re.sub(r"\s+", " ", linha)
+    return linha.strip()
 
 
 def normalizar_decimal(valor):
+    valor = str(valor or "").strip()
+
     if not valor:
         return Decimal("0")
 
-    valor = str(valor).strip().replace(".", "").replace(",", ".")
+    valor = valor.replace(".", "")
+    valor = valor.replace(",", ".")
 
     try:
         return Decimal(valor)
@@ -27,261 +47,288 @@ def normalizar_decimal(valor):
         return Decimal("0")
 
 
-def eh_numero(token):
-    return bool(NUMERO_REGEX.fullmatch(token.strip()))
+def normalizar_inteiro(valor):
+    valor = str(valor or "").strip()
+
+    if not valor:
+        return Decimal("0")
+
+    valor = valor.replace(".", "")
+
+    try:
+        return Decimal(valor)
+    except Exception:
+        return Decimal("0")
 
 
-def eh_um(token):
-    return token.strip().upper() in UM_VALIDAS
+def converter_periodo(valor):
+    if not valor or "/" not in valor:
+        return valor or ""
 
-
-def extrair_periodo(texto):
-    match = re.search(
-        r"Período:\s*(\d{2}/\d{4}|\d{4}/\d{2})\s*a\s*(\d{2}/\d{4}|\d{4}/\d{2})",
-        texto,
-    )
-
-    if not match:
-        return "", ""
-
-    return match.group(1), match.group(2)
-
-
-def extrair_data_geracao(texto):
-    match = re.search(r"\b\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2}\b", texto)
-
-    if not match:
-        return ""
-
-    return match.group(0)
-
-
-def extrair_orgao(texto):
-    match = re.search(
-        r"Órgão:\s*(\d+)\s*-\s*(.+?)(?:\s+Período:|\n|$)",
-        texto,
-        re.S,
-    )
-
-    if not match:
-        return "", ""
-
-    return match.group(1).strip(), " ".join(match.group(2).split())
-
-
-def extrair_almoxarifado(texto):
-    match = re.search(
-        r"Almoxarifado:\s*(\d+)\s*-\s*(.+?)(?:\s+Período:|\n|$)",
-        texto,
-        re.S,
-    )
-
-    if not match:
-        return "", ""
-
-    return match.group(1).strip(), " ".join(match.group(2).split())
+    mes, ano = valor.split("/")
+    return f"{ano}/{mes}"
 
 
 def linha_ignorada(linha):
-    if not linha:
-        return True
-
-    prefixos = (
+    textos = [
         "Ministério Público Federal",
         "Procuradoria da República",
         "Coordenadoria de Administração",
         "Consumo Mensal de Material",
         "Órgão:",
         "Almoxarifado:",
-        "Período:",
         "Material 2025/",
-        "AX0095",
-        "* ",
-    )
+        "AX0095-AX0095.jasper",
+        "Página ",
+        "O relatório não respeita",
+        "O relatório retorna",
+    ]
 
-    return linha.startswith(prefixos)
-
-
-def separar_item(texto_item):
-    match = ITEM_REGEX.match(texto_item.strip())
-
-    if not match:
-        return None
-
-    codigo = match.group(1).strip()
-    restante = match.group(2).strip()
-    partes = restante.split()
-
-    # Estrutura final esperada:
-    # 12 meses + U.M. + Total + CMP + Saldo Atual
-    for indice_um in range(len(partes) - 4, 11, -1):
-        um = partes[indice_um].upper()
-
-        if not eh_um(um):
-            continue
-
-        if indice_um + 3 >= len(partes):
-            continue
-
-        total_token = partes[indice_um + 1]
-        cmp_token = partes[indice_um + 2]
-        saldo_token = partes[indice_um + 3]
-
-        if not (
-            eh_numero(total_token)
-            and eh_numero(cmp_token)
-            and eh_numero(saldo_token)
-        ):
-            continue
-
-        valores_meses = partes[indice_um - 12:indice_um]
-
-        if len(valores_meses) != 12:
-            continue
-
-        if not all(eh_numero(valor) for valor in valores_meses):
-            continue
-
-        descricao_partes = partes[:indice_um - 12]
-        complemento_partes = partes[indice_um + 4:]
-
-        descricao = " ".join(
-            descricao_partes + complemento_partes
-        ).strip()
-
-        if not descricao:
-            continue
-
-        return {
-            "codigo": codigo,
-            "descricao": descricao,
-            "valores_meses": valores_meses,
-            "unidade_medida": um,
-            "total": total_token,
-            "cmp": cmp_token,
-            "saldo_atual": saldo_token,
-        }
-
-    return None
+    return any(texto in linha for texto in textos)
 
 
-def processar_relatorio_consumo_material(relatorio):
-    itens_criados = []
-    texto_completo = ""
+def extrair_texto_pdf(caminho_pdf):
+    textos = []
 
+    with pdfplumber.open(caminho_pdf) as pdf:
+        for pagina in pdf.pages:
+            texto = pagina.extract_text(
+                x_tolerance=1,
+                y_tolerance=3,
+            ) or ""
+
+            textos.append(texto)
+
+    return "\n".join(textos)
+
+
+def extrair_meses(texto):
+    for linha in texto.splitlines():
+        linha = limpar_linha(linha)
+
+        if linha.startswith("Material ") and "2025/" in linha:
+            meses = PADRAO_MESES.findall(linha)
+
+            if meses:
+                return meses[:12]
+
+    meses = []
+
+    for mes in PADRAO_MESES.findall(texto):
+        if mes not in meses:
+            meses.append(mes)
+
+    return meses[:12]
+
+
+def extrair_metadados(texto, meses):
+    data_geracao = ""
+    periodo_inicio = ""
+    periodo_fim = ""
     orgao_codigo = ""
     orgao_descricao = ""
     almoxarifado_codigo = ""
     almoxarifado_descricao = ""
-    periodo_inicio = ""
-    periodo_fim = ""
-    data_geracao = ""
-    meses = []
 
-    with pdfplumber.open(relatorio.arquivo_pdf.path) as pdf:
-        total_paginas = len(pdf.pages)
+    match_data = PADRAO_DATA_GERACAO.search(texto)
 
-        for numero_pagina in range(total_paginas):
-            page = pdf.pages[numero_pagina]
+    if match_data:
+        data_geracao = match_data.group("data")
 
-            try:
-                texto = page.extract_text() or ""
-            except Exception:
-                texto = ""
+    match_periodo = PADRAO_PERIODO.search(texto)
 
-            texto_completo += texto + "\n"
+    if match_periodo:
+        periodo_inicio = converter_periodo(match_periodo.group("inicio"))
+        periodo_fim = converter_periodo(match_periodo.group("fim"))
+    elif meses:
+        periodo_inicio = meses[0]
+        periodo_fim = meses[-1]
 
-            if not data_geracao:
-                data_geracao = extrair_data_geracao(texto)
+    if "001 - MINISTÉRIO PÚBLICO FEDERAL" in texto:
+        orgao_codigo = "001"
+        orgao_descricao = "MINISTÉRIO PÚBLICO FEDERAL"
 
-            if not periodo_inicio:
-                periodo_inicio, periodo_fim = extrair_periodo(texto)
+    if "0025 - ALMOXARIFADO PR/PE" in texto:
+        almoxarifado_codigo = "0025"
+        almoxarifado_descricao = "ALMOXARIFADO PR/PE"
 
-            if not orgao_codigo:
-                orgao_codigo, orgao_descricao = extrair_orgao(texto)
+    return {
+        "data_geracao": data_geracao,
+        "periodo_inicio": periodo_inicio,
+        "periodo_fim": periodo_fim,
+        "orgao_codigo": orgao_codigo,
+        "orgao_descricao": orgao_descricao,
+        "almoxarifado_codigo": almoxarifado_codigo,
+        "almoxarifado_descricao": almoxarifado_descricao,
+    }
 
-            if not almoxarifado_codigo:
-                almoxarifado_codigo, almoxarifado_descricao = extrair_almoxarifado(texto)
 
-            linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
-            buffer_item = ""
+def separar_blocos_de_itens(texto):
+    blocos = []
+    bloco_atual = []
 
-            for linha in linhas:
-                if linha.startswith("Material "):
-                    meses_encontrados = MESES_REGEX.findall(linha)
-                    if meses_encontrados:
-                        meses = meses_encontrados
-                    continue
+    for linha in texto.splitlines():
+        linha = limpar_linha(linha)
 
-                if linha_ignorada(linha):
-                    continue
+        if not linha:
+            continue
 
-                if ITEM_REGEX.match(linha):
-                    if buffer_item:
-                        dados = separar_item(buffer_item)
-                        if dados:
-                            consumo_mensal = {}
-                            for mes, valor in zip(meses, dados["valores_meses"]):
-                                consumo_mensal[mes] = str(normalizar_decimal(valor))
+        if linha_ignorada(linha):
+            continue
 
-                            item = ItemConsumoMaterial.objects.create(
-                                relatorio=relatorio,
-                                orgao_codigo=orgao_codigo,
-                                orgao_descricao=orgao_descricao,
-                                almoxarifado_codigo=almoxarifado_codigo,
-                                almoxarifado_descricao=almoxarifado_descricao,
-                                material_codigo=dados["codigo"],
-                                material_descricao=dados["descricao"],
-                                unidade_medida=dados["unidade_medida"],
-                                periodo_inicio=periodo_inicio,
-                                periodo_fim=periodo_fim,
-                                data_geracao=data_geracao,
-                                consumos_mensais=consumo_mensal,
-                                total=normalizar_decimal(dados["total"]),
-                                cmp=normalizar_decimal(dados["cmp"]),
-                                saldo_atual=normalizar_decimal(dados["saldo_atual"]),
-                            )
-                            itens_criados.append(item)
+        if PADRAO_CODIGO_MATERIAL.match(linha):
+            if bloco_atual:
+                blocos.append(" ".join(bloco_atual))
 
-                    buffer_item = linha
+            bloco_atual = [linha]
+        else:
+            if bloco_atual:
+                bloco_atual.append(linha)
 
-                elif buffer_item:
-                    buffer_item += " " + linha
+    if bloco_atual:
+        blocos.append(" ".join(bloco_atual))
 
-            if buffer_item:
-                dados = separar_item(buffer_item)
-                if dados:
-                    consumo_mensal = {}
-                    for mes, valor in zip(meses, dados["valores_meses"]):
-                        consumo_mensal[mes] = str(normalizar_decimal(valor))
+    return blocos
 
-                    item = ItemConsumoMaterial.objects.create(
-                        relatorio=relatorio,
-                        orgao_codigo=orgao_codigo,
-                        orgao_descricao=orgao_descricao,
-                        almoxarifado_codigo=almoxarifado_codigo,
-                        almoxarifado_descricao=almoxarifado_descricao,
-                        material_codigo=dados["codigo"],
-                        material_descricao=dados["descricao"],
-                        unidade_medida=dados["unidade_medida"],
-                        periodo_inicio=periodo_inicio,
-                        periodo_fim=periodo_fim,
-                        data_geracao=data_geracao,
-                        consumos_mensais=consumo_mensal,
-                        total=normalizar_decimal(dados["total"]),
-                        cmp=normalizar_decimal(dados["cmp"]),
-                        saldo_atual=normalizar_decimal(dados["saldo_atual"]),
-                    )
-                    itens_criados.append(item)
 
-            try:
-                page.close()
-            except Exception:
-                pass
+def montar_regex_item(qtd_meses):
+    meses = rf"(?P<meses>(?:{NUMERO_INTEIRO}\s+){{{qtd_meses}}})"
 
-            del page
+    return re.compile(
+        rf"^(?P<codigo>\d{{9}})\s*-\s*"
+        rf"(?P<descricao_antes>.*?)\s+"
+        rf"{meses}"
+        rf"(?P<unidade_medida>[A-ZÇ]{{1,5}})\s+"
+        rf"(?P<total>{NUMERO_INTEIRO})\s+"
+        rf"(?P<cmp>{NUMERO_INTEIRO},\d{{4}})\s+"
+        rf"(?P<saldo_atual>{NUMERO_INTEIRO})"
+        rf"\s*(?P<descricao_depois>.*)$"
+    )
 
-    relatorio.texto_extraido = texto_completo
+
+def parsear_bloco_item(bloco, meses, metadados):
+    bloco = limpar_linha(bloco)
+
+    regex = montar_regex_item(len(meses))
+    match = regex.match(bloco)
+
+    if not match:
+        return None
+
+    valores_meses = match.group("meses").split()
+
+    consumos_mensais = {}
+
+    for mes, valor in zip(meses, valores_meses):
+        consumos_mensais[mes] = str(normalizar_inteiro(valor))
+
+    descricao_partes = [
+        match.group("descricao_antes"),
+        match.group("descricao_depois"),
+    ]
+
+    material_descricao = limpar_linha(
+        " ".join(
+            parte.strip()
+            for parte in descricao_partes
+            if parte and parte.strip()
+        )
+    )
+
+    return {
+        "orgao_codigo": metadados["orgao_codigo"],
+        "orgao_descricao": metadados["orgao_descricao"],
+        "almoxarifado_codigo": metadados["almoxarifado_codigo"],
+        "almoxarifado_descricao": metadados["almoxarifado_descricao"],
+        "material_codigo": match.group("codigo"),
+        "material_descricao": material_descricao,
+        "unidade_medida": match.group("unidade_medida"),
+        "periodo_inicio": metadados["periodo_inicio"],
+        "periodo_fim": metadados["periodo_fim"],
+        "data_geracao": metadados["data_geracao"],
+        "consumos_mensais": consumos_mensais,
+        "total": normalizar_inteiro(match.group("total")),
+        "cmp": normalizar_decimal(match.group("cmp")),
+        "saldo_atual": normalizar_inteiro(match.group("saldo_atual")),
+    }
+
+
+def atualizar_nome_relatorio_consumo_material(relatorio, metadados):
+    periodo_inicio = metadados.get("periodo_inicio") or ""
+    periodo_fim = metadados.get("periodo_fim") or ""
+    data_geracao = metadados.get("data_geracao") or ""
+
+    data_simples = ""
+
+    if data_geracao:
+        data_simples = data_geracao.split(" ")[0]
+
+    partes = ["Consumo mensal de material"]
+
+    if periodo_inicio and periodo_fim:
+        partes.append(f"{periodo_inicio} a {periodo_fim}")
+
+    if data_simples:
+        partes.append(data_simples)
+
+    relatorio.nome_original = " - ".join(partes)
+    relatorio.save(update_fields=["nome_original"])
+
+
+@transaction.atomic
+def processar_relatorio_consumo_material(relatorio):
+    texto = extrair_texto_pdf(relatorio.arquivo_pdf.path)
+
+    meses = extrair_meses(texto)
+
+    if not meses:
+        raise ValueError(
+            "Não foi possível identificar os meses do relatório."
+        )
+
+    metadados = extrair_metadados(texto, meses)
+    blocos = separar_blocos_de_itens(texto)
+
+    itens_criados = []
+    blocos_nao_processados = []
+
+    relatorio.itens_consumo_material.all().delete()
+
+    for bloco in blocos:
+        dados = parsear_bloco_item(
+            bloco=bloco,
+            meses=meses,
+            metadados=metadados,
+        )
+
+        if not dados:
+            blocos_nao_processados.append(bloco)
+            continue
+
+        item = ItemConsumoMaterial.objects.create(
+            relatorio=relatorio,
+            **dados,
+        )
+
+        itens_criados.append(item)
+
+    relatorio.texto_extraido = texto
     relatorio.save(update_fields=["texto_extraido"])
+
+    atualizar_nome_relatorio_consumo_material(relatorio, metadados)
+
+    # if blocos_nao_processados:
+    #     print("=" * 80)
+    #     print("Blocos não processados no consumo mensal de material:")
+    #     print(f"Total não processado: {len(blocos_nao_processados)}")
+
+    #     for bloco in blocos_nao_processados[:30]:
+    #         print("-" * 80)
+    #         print(bloco)
+
+    # print("=" * 80)
+    # print(f"Itens identificados no PDF: {len(blocos)}")
+    # print(f"Itens gravados no banco: {len(itens_criados)}")
+    # print(f"Itens não processados: {len(blocos_nao_processados)}")
 
     return itens_criados
