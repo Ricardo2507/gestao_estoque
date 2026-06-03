@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load formatadores %}
+
+{% block title %}Detalhes do consumo por UR{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+<style>
+    .consumo-page { font-size: 0.92rem; }
+    .consumo-page h1 { font-size: 2rem; font-weight: 600; }
+    .table { font-size: 0.82rem; }
+    .table thead th { font-size: 0.76rem; white-space: nowrap; vertical-align: middle; }
+    .table tbody td { vertical-align: middle; }
+    .dt-buttons .btn { font-size: 0.78rem !important; padding: 0.25rem 0.55rem; }
+    .dataTables_filter input { font-size: 0.88rem; min-width: 340px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="consumo-page">
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1>Consumo por Unidade Requisitante</h1>
+            <p class="text-muted mb-0">{{ relatorio.nome_original }}</p>
+        </div>
+
+        <a href="{% url 'estoque_inteligente:consumo_ur_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3 fw-bold">Data de envio</div>
+        <div class="col-md-9">{{ relatorio.data_envio|date:"d/m/Y H:i" }}</div>
+    </div>
+
+    <form method="get" class="card card-body shadow-sm mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-5">
+                <label class="form-label">Material</label>
+                <select name="material" class="form-select">
+                    <option value="">Todos os materiais</option>
+                    {% for material in materiais %}
+                        <option value="{{ material.material_codigo }}" {% if material_atual == material.material_codigo %}selected{% endif %}>
+                            {{ material.material_codigo }} - {{ material.material_descricao|truncatechars:80 }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-5">
+                <label class="form-label">Unidade Requisitante</label>
+                <select name="ur" class="form-select">
+                    <option value="">Todas as URs</option>
+                    {% for unidade in urs %}
+                        <option value="{{ unidade.ur_codigo }}" {% if ur_atual == unidade.ur_codigo %}selected{% endif %}>
+                            {{ unidade.ur_codigo }} - {{ unidade.ur_descricao|truncatechars:80 }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-filter"></i> Filtrar
+                </button>
+                <a href="{% url 'estoque_inteligente:consumo_ur_detail' relatorio.pk %}" class="btn btn-outline-secondary">
+                    Limpar
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Itens processados</h2>
+
+            <div class="table-responsive">
+                <table id="tabela-consumo-ur" class="table table-striped table-bordered align-middle w-100">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Material</th>
+                            <th>Descrição do Material</th>
+                            <th>UM</th>
+                            <th>UR</th>
+                            <th>Descrição da UR</th>
+                            {% for mes in meses %}
+                                <th class="text-end">{{ mes }}</th>
+                            {% endfor %}
+                            <th class="text-end">Total</th>
+                            <th class="text-end">CMP</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for item in itens %}
+                            <tr>
+                                <td>{{ item.material_codigo }}</td>
+                                <td>{{ item.material_descricao }}</td>
+                                <td>{{ item.unidade_medida }}</td>
+                                <td>{{ item.ur_codigo }}</td>
+                                <td>{{ item.ur_descricao }}</td>
+                                {% for mes in meses %}
+                                    <td class="text-end">{{ item.consumos_mensais|get_item:mes|decimal4_virgula }}</td>
+                                {% endfor %}
+                                <td class="text-end fw-bold">{{ item.total|decimal4_virgula }}</td>
+                                <td class="text-end fw-bold">{{ item.cmp|decimal4_virgula }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+<script>
+    $(document).ready(function () {
+        $('#tabela-consumo-ur').DataTable({
+            pageLength: 25,
+            order: [[0, 'asc'], [3, 'asc']],
+            scrollX: true,
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
+            },
+            dom: 'Bfrtip',
+            buttons: [
+                'copy',
+                'excel',
+                'csv',
+                'pdf',
+                'print',
+                {
+                    extend: 'colvis',
+                    text: 'Visibilidade da Coluna'
+                }
+            ]
+        });
+    });
+</script>
+{% endblock %}

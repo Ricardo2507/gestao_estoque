@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Excluir Consumo por UR
+{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+
+    <div class="col-md-8 col-lg-6">
+
+        <div class="card shadow-sm border-danger">
+
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">
+                    Confirmar exclusão
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <p>
+                    Tem certeza de que deseja excluir o relatório:
+                </p>
+
+                <p class="fw-bold">
+                    {{ relatorio.nome_original }}
+                </p>
+
+                <div class="alert alert-warning">
+                    Esta ação removerá o relatório de consumo por UR e todos os itens processados vinculados a ele.
+                </div>
+
+                <form method="post">
+
+                    {% csrf_token %}
+
+                    <div class="d-flex justify-content-between mt-4">
+
+                        <a
+                            href="{% url 'estoque_inteligente:consumo_ur_list' %}"
+                            class="btn btn-secondary"
+                        >
+                            Cancelar
+                        </a>
+
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                        >
+                            Confirmar exclusão
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

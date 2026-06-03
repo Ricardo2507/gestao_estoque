@@ -62,7 +62,8 @@ class ItemEstoque(models.Model):
 
     def __str__(self):
         return f"{self.conta_codigo} - {self.numero_item} - {self.codigo_material}"
-    
+
+
 class RelatorioConsumoUR(models.Model):
     nome_original = models.CharField(max_length=255, blank=True)
     arquivo_pdf = models.FileField(upload_to="relatorios_consumo_ur/")
@@ -70,8 +71,13 @@ class RelatorioConsumoUR(models.Model):
     texto_extraido = models.TextField(blank=True)
     data_envio = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-data_envio"]
+        verbose_name = "Relatório de consumo por UR"
+        verbose_name_plural = "Relatórios de consumo por UR"
+
     def __str__(self):
-        return self.nome_original or f"Relatório Consumo UR {self.pk}"
+        return self.nome_original or f"Consumo por UR {self.pk}"
 
 
 class ItemConsumoUR(models.Model):
@@ -81,23 +87,32 @@ class ItemConsumoUR(models.Model):
         related_name="itens_consumo",
     )
 
-    material_codigo = models.CharField(max_length=20, db_index=True)
+    orgao_codigo = models.CharField(max_length=20, blank=True, db_index=True)
+    orgao_descricao = models.CharField(max_length=255, blank=True)
+
+    material_codigo = models.CharField(max_length=30, db_index=True)
     material_descricao = models.TextField()
-    unidade_medida = models.CharField(max_length=30, blank=True)
+    unidade_medida = models.CharField(max_length=80, blank=True)
 
     periodo_inicio = models.CharField(max_length=7, blank=True)
     periodo_fim = models.CharField(max_length=7, blank=True)
+    data_geracao = models.CharField(max_length=30, blank=True)
 
-    ur_codigo = models.CharField(max_length=20, db_index=True)
+    ur_codigo = models.CharField(max_length=30, db_index=True)
     ur_descricao = models.CharField(max_length=255)
 
     consumos_mensais = models.JSONField(default=dict, blank=True)
-
-    total = models.DecimalField(max_digits=12, decimal_places=4, default=0)
-    cmp = models.DecimalField(max_digits=12, decimal_places=4, default=0)
+    total = models.DecimalField(max_digits=14, decimal_places=4, default=0)
+    cmp = models.DecimalField(max_digits=14, decimal_places=4, default=0)
 
     class Meta:
         ordering = ["material_codigo", "ur_codigo"]
+        indexes = [
+            models.Index(fields=["material_codigo", "ur_codigo"]),
+            models.Index(fields=["ur_codigo", "material_codigo"]),
+        ]
+        verbose_name = "Item de consumo por UR"
+        verbose_name_plural = "Itens de consumo por UR"
 
     def __str__(self):
         return f"{self.material_codigo} - {self.ur_codigo}"

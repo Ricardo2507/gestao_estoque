@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load dict_extras %}
+
+{% block title %}
+    Detalhes Consumo por UR
+{% endblock %}
+
+{% block extra_css %}
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+
+<style>
+    #tabela-consumo-ur {
+        width: 100% !important;
+        font-size: 0.82rem;
+    }
+
+    #tabela-consumo-ur th,
+    #tabela-consumo-ur td {
+        vertical-align: middle;
+        white-space: nowrap;
+    }
+
+    .col-codigo {
+        min-width: 95px;
+    }
+
+    .col-material {
+        min-width: 260px;
+        white-space: normal !important;
+    }
+
+    .col-um {
+        min-width: 55px;
+        text-align: center;
+    }
+
+    .col-ur {
+        min-width: 60px;
+        text-align: center;
+    }
+
+    .col-descricao-ur {
+        min-width: 320px;
+        white-space: normal !important;
+    }
+
+    .col-mes {
+        min-width: 75px;
+        text-align: right;
+    }
+
+    .col-total,
+    .col-cmp {
+        min-width: 85px;
+        text-align: right;
+    }
+
+    div.dataTables_wrapper {
+        width: 100%;
+    }
+</style>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="mb-4">Detalhes do relatório</h1>
+
+        <div class="row mb-2">
+            <div class="col-md-3 fw-bold">Nome do arquivo</div>
+            <div class="col-md-9">{{ relatorio.nome_original }}</div>
+        </div>
+
+        <div class="row mb-2">
+            <div class="col-md-3 fw-bold">Data de envio</div>
+            <div class="col-md-9">{{ relatorio.data_envio|date:"d/m/Y H:i" }}</div>
+        </div>
+    </div>
+
+    <a
+        href="{% url 'estoque_inteligente:consumo_ur_list' %}"
+        class="btn btn-outline-secondary"
+    >
+        ← Voltar
+    </a>
+</div>
+
+<h2 class="mb-3">Itens processados</h2>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+
+        {% if itens %}
+
+            <div class="table-responsive">
+
+                <table
+                    id="tabela-consumo-ur"
+                    class="table table-striped table-hover align-middle table-sm"
+                >
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="col-codigo">Código</th>
+                            <th class="col-material">Descrição do Material</th>
+                            <th class="col-um">UM</th>
+                            <th class="col-ur">UR</th>
+                            <th class="col-descricao-ur">Descrição da UR</th>
+
+                            {% for mes in meses %}
+                                <th class="col-mes">{{ mes }}</th>
+                            {% endfor %}
+
+                            <th class="col-total">Total</th>
+                            <th class="col-cmp">CMP</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for item in itens %}
+                            <tr>
+                                <td class="col-codigo">{{ item.material_codigo }}</td>
+                                <td class="col-material">{{ item.material_descricao }}</td>
+                                <td class="col-um">{{ item.unidade_medida }}</td>
+                                <td class="col-ur">{{ item.ur_codigo }}</td>
+                                <td class="col-descricao-ur">{{ item.ur_descricao }}</td>
+
+                                {% for mes in meses %}
+                                    <td class="col-mes">
+                                        {{ item.consumos_mensais|get_item:mes }}
+                                    </td>
+                                {% endfor %}
+
+                                <td class="col-total">{{ item.total }}</td>
+                                <td class="col-cmp">{{ item.cmp }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="alert alert-warning mb-0">
+                Nenhum item foi processado neste relatório.
+            </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.8/js/dataTables.bootstrap5.min.js"></script>
+
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<script>
+    $(document).ready(function () {
+        $('#tabela-consumo-ur').DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
+            },
+            dom:
+                "<'row mb-3'<'col-md-8'B><'col-md-4'f>>" +
+                "<'row'<'col-12'tr>>" +
+                "<'row mt-3'<'col-md-5'i><'col-md-7'p>>",
+            buttons: [
+                { extend: 'copy', text: 'Copiar', className: 'btn btn-secondary btn-sm' },
+                { extend: 'excel', text: 'Excel', className: 'btn btn-secondary btn-sm' },
+                { extend: 'csv', text: 'CSV', className: 'btn btn-secondary btn-sm' },
+                {
+                    extend: 'pdf',
+                    text: 'PDF',
+                    className: 'btn btn-secondary btn-sm',
+                    orientation: 'landscape',
+                    pageSize: 'A4'
+                },
+                { extend: 'print', text: 'Imprimir', className: 'btn btn-secondary btn-sm' },
+                { extend: 'colvis', text: 'Visibilidade da Coluna', className: 'btn btn-secondary btn-sm' }
+            ],
+            pageLength: 25,
+            lengthMenu: [
+                [10, 25, 50, 100, -1],
+                [10, 25, 50, 100, "Todos"]
+            ],
+            order: [[0, 'asc']],
+            scrollX: true,
+            autoWidth: false
+        });
+    });
+</script>
+
+{% endblock %}

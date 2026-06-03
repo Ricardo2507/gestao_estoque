@@ -12,7 +12,6 @@ from .models import ItemEstoque, RelatorioEstoque
 from .parser import processar_relatorio
 
 
-
 class RelatorioUploadView(LoginRequiredMixin, CreateView):
     model = RelatorioEstoque
     form_class = RelatorioEstoqueForm
@@ -268,7 +267,7 @@ class RelatorioDeleteView(LoginRequiredMixin, DeleteView):
         return redirect(
             self.success_url
         )
-        
+
 from .forms import RelatorioConsumoURForm
 from .models import RelatorioConsumoUR
 from .parser_consumo_ur import processar_relatorio_consumo_ur
@@ -301,28 +300,12 @@ class ConsumoURUploadView(LoginRequiredMixin, CreateView):
                 self.request,
                 f"Erro ao processar relatório de consumo por UR: {exc}",
             )
-
-            return redirect(
-                "estoque_inteligente:consumo_ur_list"
-            )
+            return redirect("estoque_inteligente:consumo_ur_list")
 
     def form_invalid(self, form):
-
-        messages.error(
-            self.request,
-            "Não foi possível enviar o relatório."
-        )
-
-        for campo, erros in form.errors.items():
-
-            for erro in erros:
-
-                messages.warning(
-                    self.request,
-                    erro,
-                )
-
+        messages.error(self.request, "Erro ao enviar relatório de consumo por UR.")
         return super().form_invalid(form)
+
 
 class ConsumoURListView(LoginRequiredMixin, ListView):
     model = RelatorioConsumoUR
@@ -330,11 +313,7 @@ class ConsumoURListView(LoginRequiredMixin, ListView):
     context_object_name = "relatorios"
 
     def get_queryset(self):
-        return (
-            RelatorioConsumoUR.objects
-            .all()
-            .order_by("-data_envio")
-        )
+        return RelatorioConsumoUR.objects.all().order_by("-data_envio")
 
 
 class ConsumoURDetailView(LoginRequiredMixin, DetailView):
@@ -357,35 +336,23 @@ class ConsumoURDetailView(LoginRequiredMixin, DetailView):
             itens = itens.filter(ur_codigo=ur)
 
         meses = []
-
         primeiro_item = self.object.itens_consumo.first()
-
         if primeiro_item:
-            meses = list(
-                primeiro_item.consumos_mensais.keys()
-            )
+            meses = list(primeiro_item.consumos_mensais.keys())
 
         context["itens"] = itens
         context["meses"] = meses
         context["material_atual"] = material
         context["ur_atual"] = ur
-
         context["materiais"] = (
             self.object.itens_consumo
-            .values(
-                "material_codigo",
-                "material_descricao",
-            )
+            .values("material_codigo", "material_descricao")
             .distinct()
             .order_by("material_codigo")
         )
-
         context["urs"] = (
             self.object.itens_consumo
-            .values(
-                "ur_codigo",
-                "ur_descricao",
-            )
+            .values("ur_codigo", "ur_descricao")
             .distinct()
             .order_by("ur_codigo")
         )
@@ -401,48 +368,24 @@ class ConsumoURDeleteView(LoginRequiredMixin, DeleteView):
 
     def form_valid(self, form):
         self.object = self.get_object()
-
-        arquivo_pdf_path = (
-            self.object.arquivo_pdf.path
-            if self.object.arquivo_pdf
-            else None
-        )
+        arquivo_pdf_path = self.object.arquivo_pdf.path if self.object.arquivo_pdf else None
 
         with transaction.atomic():
-
             self.object.itens_consumo.all().delete()
-
             self.object.delete()
 
         if arquivo_pdf_path:
             try:
-                Path(
-                    arquivo_pdf_path
-                ).unlink(
-                    missing_ok=True
-                )
-
+                Path(arquivo_pdf_path).unlink(missing_ok=True)
             except Exception:
                 messages.warning(
                     self.request,
-                    (
-                        "Relatório excluído, mas não foi "
-                        "possível apagar o PDF do disco."
-                    ),
+                    "Relatório excluído, mas não foi possível apagar o PDF do disco.",
                 )
+                return redirect(self.success_url)
 
-                return redirect(
-                    self.success_url
-                )
-
-        messages.success(
-            self.request,
-            "Relatório de consumo por UR excluído com sucesso.",
-        )
-
-        return redirect(
-            self.success_url
-        )
+        messages.success(self.request, "Relatório de consumo por UR excluído com sucesso.")
+        return redirect(self.success_url)
 
 
 def atualizar_nome_relatorio_consumo_ur(relatorio):
@@ -451,12 +394,6 @@ def atualizar_nome_relatorio_consumo_ur(relatorio):
 
     if primeiro:
         relatorio.nome_original = (
-            f"Consumo por UR - "
-            f"{primeiro.periodo_inicio} a "
-            f"{primeiro.periodo_fim} - "
-            f"{data_formatada}"
+            f"Consumo por UR - {primeiro.periodo_inicio} a {primeiro.periodo_fim} - {data_formatada}"
         )
-
-        relatorio.save(
-            update_fields=["nome_original"]
-        )
+        relatorio.save(update_fields=["nome_original"])

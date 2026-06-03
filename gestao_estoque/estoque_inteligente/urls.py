@@ -4,6 +4,11 @@ from . import views
 app_name = "estoque_inteligente"
 
 urlpatterns = [
+
+    path("consumo-ur/", views.ConsumoURListView.as_view(), name="consumo_ur_list"),
+    path("consumo-ur/upload/", views.ConsumoURUploadView.as_view(), name="consumo_ur_upload"),
+    path("consumo-ur/<int:pk>/", views.ConsumoURDetailView.as_view(), name="consumo_ur_detail"),
+    path("consumo-ur/<int:pk>/excluir/", views.ConsumoURDeleteView.as_view(), name="consumo_ur_delete"),
     path("", views.RelatorioListView.as_view(), name="relatorio_list"),
     path("upload/", views.RelatorioUploadView.as_view(), name="relatorio_upload"),
     path("relatorios/<int:pk>/", views.RelatorioDetailView.as_view(),
@@ -17,25 +22,5 @@ urlpatterns = [
         "relatorios/<int:pk>/excluir/",
         views.RelatorioDeleteView.as_view(),
         name="relatorio_delete",
-    ),
-    path(
-        "consumo-ur/",
-        views.ConsumoURListView.as_view(),
-        name="consumo_ur_list",
-    ),
-    path(
-        "consumo-ur/upload/",
-        views.ConsumoURUploadView.as_view(),
-        name="consumo_ur_upload",
-    ),
-    path(
-        "consumo-ur/<int:pk>/",
-        views.ConsumoURDetailView.as_view(),
-        name="consumo_ur_detail",
-    ),
-    path(
-        "consumo-ur/<int:pk>/excluir/",
-        views.ConsumoURDeleteView.as_view(),
-        name="consumo_ur_delete",
     ),
 ]

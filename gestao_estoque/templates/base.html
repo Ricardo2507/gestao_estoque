@@ -1,0 +1,233 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}
+            Gestão de Estoque
+        {% endblock %}
+    </title>
+
+    <!-- Bootstrap -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <!-- Bootstrap Icons -->
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+        rel="stylesheet"
+    >
+
+    <!-- Favicon -->
+    <link
+        rel="icon"
+        type="image/x-icon"
+        href="{% static 'img/favicon.ico' %}?v=10"
+    >
+
+    <!-- CSS próprio -->
+    <link
+        rel="stylesheet"
+        href="{% static 'css/style.css' %}"
+    >
+
+    <!-- CSS extra dos templates -->
+    {% block extra_css %}
+    {% endblock %}
+
+</head>
+
+<body class="bg-light d-flex flex-column min-vh-100">
+
+    <!-- NAVBAR -->
+    {% if request.path != '/login/' %}
+
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+
+            <div class="container-fluid px-4">
+
+                <!-- LOGO -->
+                <a
+                    class="navbar-brand fw-bold"
+                    href="{% url 'dashboard:home' %}"
+                >
+                    <i class="bi bi-speedometer2"></i>
+                    Gestão de Estoque
+                </a>
+
+                <!-- BOTÃO MOBILE -->
+                <button
+                    class="navbar-toggler"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarNav"
+                    aria-controls="navbarNav"
+                    aria-expanded="false"
+                    aria-label="Alternar navegação"
+                >
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- MENU -->
+                <div
+                    class="collapse navbar-collapse"
+                    id="navbarNav"
+                >
+
+                    <!-- LINKS -->
+                    <ul class="navbar-nav me-auto">
+
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{% url 'dashboard:home' %}"
+                            >
+                                Painel Gerencial
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{% url 'estoque_inteligente:relatorio_list' %}"
+                            >
+                                Relatórios
+                            </a>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a
+                                class="nav-link dropdown-toggle"
+                                href="#"
+                                role="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                            >
+                                Consumo por UR
+                            </a>
+
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a
+                                        class="dropdown-item"
+                                        href="{% url 'estoque_inteligente:consumo_ur_list' %}"
+                                    >
+                                        Relatórios enviados
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        class="dropdown-item"
+                                        href="{% url 'estoque_inteligente:consumo_ur_upload' %}"
+                                    >
+                                        Novo upload de consumo
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item">
+                            <a
+                                class="nav-link"
+                                href="{% url 'estoque_inteligente:relatorio_upload' %}"
+                            >
+                                Novo upload
+                            </a>
+                        </li>
+
+                    </ul>
+
+                    <!-- USUÁRIO -->
+                    <div class="d-flex align-items-center gap-3">
+
+                        {% if user.is_authenticated %}
+
+                            <span class="text-white">
+                                <i class="bi bi-person-circle"></i>
+                                {{ user.username }}
+                            </span>
+
+                            <form
+                                method="post"
+                                action="{% url 'logout' %}"
+                                class="m-0"
+                            >
+
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-outline-light btn-sm"
+                                >
+                                    Sair
+                                </button>
+
+                            </form>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </nav>
+
+    {% endif %}
+
+    <!-- CONTEÚDO -->
+    <main class="container-fluid px-4 mt-4 flex-grow-1">
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+    <!-- FOOTER -->
+    {% if request.path != '/login/' %}
+
+        <footer class="bg-dark text-light mt-5 py-3 border-top">
+
+            <div class="container-fluid px-4">
+
+                <div class="row align-items-center">
+
+                    <div class="col-md-6 text-center text-md-start small">
+                        © {% now "Y" %} Gestão de Estoque
+                    </div>
+
+                    <div class="col-md-6 text-center text-md-end small text-secondary">
+                        Desenvolvido por RS Soluções em TI · v1.0.0
+                    </div>
+
+                </div>
+
+            </div>
+
+        </footer>
+
+    {% endif %}
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JS extra dos templates -->
+    {% block extra_js %}
+    {% endblock %}
+
+</body>
+
+</html>
