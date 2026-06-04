@@ -8,14 +8,16 @@ from .models import ItemConsumoUR
 
 MESES_REGEX = re.compile(r"20\d{2}/\d{2}")
 UR_REGEX = re.compile(r"^(\d{4})\s*-\s*(.+)")
-NUMERO_REGEX = re.compile(r"^\d+(?:,\d+)?$")
+NUMERO_REGEX = re.compile(r"^\d+(?:\.\d{3})*(?:,\d+)?$")
 
 
 def normalizar_decimal(valor):
     if not valor:
         return Decimal("0")
 
-    valor = str(valor).strip().replace(".", "").replace(",", ".")
+    valor = str(valor).strip()
+    valor = valor.replace(".", "")
+    valor = valor.replace(",", ".")
 
     try:
         return Decimal(valor)
@@ -130,6 +132,24 @@ def linha_complemento_ur(linha):
     return True
 
 
+def limpar_descricao_ur(descricao):
+    descricao = re.sub(r"\s+", " ", descricao or "").strip()
+
+    while descricao.endswith(" 0"):
+        descricao = descricao[:-2].strip()
+
+    return descricao
+
+
+def calcular_total_consumo(consumo_mensal):
+    total = Decimal("0")
+
+    for valor in consumo_mensal.values():
+        total += normalizar_decimal(valor)
+
+    return total
+
+
 def processar_relatorio_consumo_ur(relatorio):
     itens_criados = []
     texto_completo = ""
@@ -140,6 +160,8 @@ def processar_relatorio_consumo_ur(relatorio):
     periodo_inicio = ""
     periodo_fim = ""
     meses = []
+
+    relatorio.itens_consumo.all().delete()
 
     with pdfplumber.open(relatorio.arquivo_pdf.path) as pdf:
 
@@ -198,7 +220,13 @@ def processar_relatorio_consumo_ur(relatorio):
                 if complemento:
                     ur_descricao = f"{ur_descricao} {complemento}".strip()
 
-                if len(valores) < 2:
+                ur_descricao = limpar_descricao_ur(ur_descricao)
+
+                if not meses:
+                    indice += 1
+                    continue
+
+                if len(valores) < len(meses) + 1:
                     indice += 1
                     continue
 
@@ -209,7 +237,20 @@ def processar_relatorio_consumo_ur(relatorio):
                 for mes, valor in zip(meses, valores_meses):
                     consumo_mensal[mes] = str(normalizar_decimal(valor))
 
-                total = normalizar_decimal(valores[-2])
+                # Correção importante:
+                # O PDF às vezes quebra totais grandes, por exemplo:
+                # 1.159,000
+                # 0
+                #
+                # Nesses casos o parser antigo gravava como total apenas
+                # o último mês, como 130, em vez de 1159.
+                #
+                # Para garantir consistência, o total passa a ser sempre
+                # calculado pela soma dos 12 meses.
+                total = calcular_total_consumo(consumo_mensal)
+
+                # O CMP continua sendo lido do último número da linha,
+                # pois ele não sofre o mesmo problema prático observado.
                 cmp = normalizar_decimal(valores[-1])
 
                 item = ItemConsumoUR.objects.create(
