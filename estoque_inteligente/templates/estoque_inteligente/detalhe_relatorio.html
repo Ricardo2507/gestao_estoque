@@ -70,7 +70,9 @@ Detalhes do Relatório
         {% if itens %}
 
             <div class="filtros-status mb-3">
-                <button type="button" class="btn btn-outline-secondary btn-sm filtro-status" data-status="">
+                <span class="fw-bold me-2">Status:</span>
+
+                <button type="button" class="btn btn-secondary btn-sm filtro-status active" data-status="">
                     Todos
                 </button>
 
@@ -92,14 +94,6 @@ Detalhes do Relatório
 
                 <button type="button" class="btn btn-outline-primary btn-sm filtro-status" data-status="Estoque parado">
                     Estoque parado
-                </button>
-
-                <button type="button" class="btn btn-outline-success btn-sm filtro-situacao" data-situacao="Ativo">
-                    Ativo
-                </button>
-
-                <button type="button" class="btn btn-outline-dark btn-sm filtro-situacao" data-situacao="Inativo">
-                    Inativo
                 </button>
             </div>
 
@@ -319,26 +313,14 @@ Detalhes do Relatório
         });
 
         $('.filtro-status').on('click', function () {
-            const status = $(this).data('status');
+            const status = $(this).data('status') || '';
 
             $('.filtro-status').removeClass('active');
             $(this).addClass('active');
 
             tabela
                 .column(11)
-                .search(status ? status : '', true, false)
-                .draw();
-        });
-
-        $('.filtro-situacao').on('click', function () {
-            const situacao = $(this).data('situacao');
-
-            $('.filtro-situacao').removeClass('active');
-            $(this).addClass('active');
-
-            tabela
-                .column(12)
-                .search(situacao ? situacao : '', true, false)
+                .search(status, true, false)
                 .draw();
         });
     });
