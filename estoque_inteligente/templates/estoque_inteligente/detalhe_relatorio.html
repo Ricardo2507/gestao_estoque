@@ -29,6 +29,11 @@ Detalhes do Relatório
     .text-num {
         text-align: right;
     }
+
+    .filtros-status .btn {
+        margin-right: 0.25rem;
+        margin-bottom: 0.35rem;
+    }
 </style>
 {% endblock %}
 
@@ -63,6 +68,40 @@ Detalhes do Relatório
     <div class="card-body">
 
         {% if itens %}
+
+            <div class="filtros-status mb-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm filtro-status" data-status="">
+                    Todos
+                </button>
+
+                <button type="button" class="btn btn-outline-danger btn-sm filtro-status" data-status="Crítico">
+                    Crítico
+                </button>
+
+                <button type="button" class="btn btn-outline-warning btn-sm filtro-status" data-status="Atenção">
+                    Atenção
+                </button>
+
+                <button type="button" class="btn btn-outline-success btn-sm filtro-status" data-status="Normal">
+                    Normal
+                </button>
+
+                <button type="button" class="btn btn-outline-secondary btn-sm filtro-status" data-status="Sem movimento">
+                    Sem movimento
+                </button>
+
+                <button type="button" class="btn btn-outline-primary btn-sm filtro-status" data-status="Estoque parado">
+                    Estoque parado
+                </button>
+
+                <button type="button" class="btn btn-outline-success btn-sm filtro-situacao" data-situacao="Ativo">
+                    Ativo
+                </button>
+
+                <button type="button" class="btn btn-outline-dark btn-sm filtro-situacao" data-situacao="Inativo">
+                    Inativo
+                </button>
+            </div>
 
             <div class="table-responsive">
                 <table
@@ -208,7 +247,7 @@ Detalhes do Relatório
     }
 
     $(document).ready(function () {
-        $('#tabela-estoque').DataTable({
+        const tabela = $('#tabela-estoque').DataTable({
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
             },
@@ -277,6 +316,30 @@ Detalhes do Relatório
             order: [[0, 'asc'], [2, 'asc']],
             scrollX: true,
             autoWidth: false
+        });
+
+        $('.filtro-status').on('click', function () {
+            const status = $(this).data('status');
+
+            $('.filtro-status').removeClass('active');
+            $(this).addClass('active');
+
+            tabela
+                .column(11)
+                .search(status ? status : '', true, false)
+                .draw();
+        });
+
+        $('.filtro-situacao').on('click', function () {
+            const situacao = $(this).data('situacao');
+
+            $('.filtro-situacao').removeClass('active');
+            $(this).addClass('active');
+
+            tabela
+                .column(12)
+                .search(situacao ? situacao : '', true, false)
+                .draw();
         });
     });
 </script>
