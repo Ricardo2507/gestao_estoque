@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views_gerenciais import ConsultaPrioridadeCompraView
 
 app_name = "estoque_inteligente"
 
@@ -58,4 +59,10 @@ urlpatterns = [
         views.ConsumoMaterialDeleteView.as_view(),
         name="consumo_material_delete",
     ),
+     path(
+       "consultas/prioridade-compra/",
+       ConsultaPrioridadeCompraView.as_view(),
+       name="consulta_prioridade_compra",
+   ),
+
 ]
